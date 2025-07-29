@@ -91,7 +91,7 @@ def _initialize_meta_store(config_file: str):
         _initialize_sqlite_db(meta_store_path)
     except Exception as e:
         typer.echo(f"Error initializing meta store: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _initialize_vector_store(config_file: str):
@@ -101,7 +101,7 @@ def _initialize_vector_store(config_file: str):
         _initialize_sqlite_db(vector_store_path)
     except Exception as e:
         typer.echo(f"Error initializing vector store: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _initialize_chunk_store(config_file: str):
@@ -111,4 +111,4 @@ def _initialize_chunk_store(config_file: str):
         _initialize_sqlite_db(private_store_path)
     except Exception as e:
         typer.echo(f"Error initializing private store: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
