@@ -7,6 +7,44 @@ import yaml
 from synapso_core.config_manager import GlobalConfig, get_config
 
 
+def set_environment_variable_system_wide(var_name: str, var_value: str):
+    """Set an environment variable system-wide by modifying shell configuration files."""
+    home = Path.home()
+    shell = os.environ.get("SHELL", "")
+
+    # Determine which shell configuration file to use
+    if "zsh" in shell:
+        config_file = home / ".zshrc"
+    elif "bash" in shell:
+        config_file = home / ".bash_profile"
+        if not config_file.exists():
+            config_file = home / ".bashrc"
+    else:
+        # Default to .zshrc for macOS
+        config_file = home / ".zshrc"
+
+    # Check if the variable is already set
+    if config_file.exists():
+        with open(config_file, "r") as f:
+            content = f.read()
+            if f"export {var_name}=" in content:
+                typer.echo(
+                    f"Environment variable {var_name} is already set in {config_file}"
+                )
+                return
+
+    # Add the export statement to the configuration file
+    export_line = f'\nexport {var_name}="{var_value}"\n'
+
+    with open(config_file, "a") as f:
+        f.write(export_line)
+
+    typer.echo(f"Added {var_name}={var_value} to {config_file}")
+    typer.echo(
+        f"Please run 'source {config_file}' or restart your terminal to apply changes"
+    )
+
+
 def init_synapso():
     """
     Initialize a new Synapso project.
@@ -23,8 +61,13 @@ def init_synapso():
     if not SYNAPSO_HOME_STR:
         SYNAPSO_HOME = Path.home() / ".synapso"
         SYNAPSO_HOME.mkdir(parents=True, exist_ok=True)
-        os.environ["SYNAPSO_HOME"] = str(SYNAPSO_HOME)
         SYNAPSO_HOME_STR = str(SYNAPSO_HOME.expanduser().resolve())
+
+        # Set the environment variable system-wide
+        set_environment_variable_system_wide("SYNAPSO_HOME", SYNAPSO_HOME_STR)
+
+        # Also set it for the current process
+        os.environ["SYNAPSO_HOME"] = SYNAPSO_HOME_STR
         typer.echo(f"SYNAPSO_HOME not set, using default: {SYNAPSO_HOME_STR}")
     else:
         typer.echo(f"SYNAPSO_HOME set to: {SYNAPSO_HOME_STR}")
@@ -32,16 +75,12 @@ def init_synapso():
     config_path = Path(SYNAPSO_HOME_STR) / "config.yaml"
     if config_path.exists():
         typer.echo(f"Config file already exists at {config_path}")
-        return
-
-    typer.echo(f"Creating config file at {config_path}")
-    config_path.touch()
-
-    # copy the default config file to the config file
-    default_config = _get_default_config()
-    with open(config_path, "w") as f:
-        yaml.dump(default_config, f)
-    typer.echo(f"Config file created at {config_path}")
+    else:
+        typer.echo(f"Creating config file at {config_path}")
+        default_config = _get_default_config()
+        with open(config_path, "w") as f:
+            yaml.dump(default_config, f, default_flow_style=False)
+        typer.echo(f"Config file created at {config_path}")
 
     _initialize(str(config_path))
 
@@ -51,7 +90,7 @@ def _get_default_config() -> Dict[str, Any]:
     Get the default config.
     """
     default_config_path = (
-        Path(__file__).parent.parent / "resources" / "default_config.yaml"
+        Path(__file__).parent.parent.parent.parent / "resources" / "default_config.yaml"
     )
     if not default_config_path.exists():
         typer.echo(
@@ -68,7 +107,7 @@ def _initialize_sqlite_db(location: str) -> None:
     """
     Initialize the SQLite database.
     """
-    db_path = Path(location)
+    db_path = Path(location).expanduser().resolve()
     if db_path.exists():
         typer.echo(f"SQLite database already exists at {db_path}")
         return

@@ -4,7 +4,7 @@ meta_store:
   meta_db_type: sqlite
 
   # Path to the meta database
-  meta_db_path: meta.db
+  meta_db_path: ~/.synapso/meta.db
 
 # Private store config
 private_store:
@@ -12,7 +12,7 @@ private_store:
   private_db_type: sqlite
 
   # Path to the private database
-  private_db_path: private.db
+  private_db_path: ~/.synapso/private.db
 
 # Vector store config
 vector_store:
@@ -20,7 +20,7 @@ vector_store:
   vector_db_type: sqlite
 
   # Path to the vector database
-  vector_db_path: vector.db
+  vector_db_path: ~/.synapso/vector.db
 
 # Reranker config
 reranker:
