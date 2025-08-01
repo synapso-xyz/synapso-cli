@@ -45,3 +45,4 @@ def index(
     ),
 ):
     cmd_index_cortex(cortex_id)
+    typer.echo(f"Cortex {cortex_id} indexed successfully")
