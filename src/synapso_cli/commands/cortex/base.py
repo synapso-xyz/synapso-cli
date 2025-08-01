@@ -34,6 +34,8 @@ def initialize(
     ),
 ):
     cmd_initialize_cortex(cortex_id, index_now)
+    action = "initialized and indexed" if index_now else "initialized"
+    typer.echo(f"Cortex {cortex_id} {action} successfully")
 
 
 @cortex_app.command(name="index")

@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict
 
@@ -9,6 +10,11 @@ from synapso_core.config_manager import GlobalConfig, get_config
 
 def set_environment_variable_system_wide(var_name: str, var_value: str):
     """Set an environment variable system-wide by modifying shell configuration files."""
+    # Validate
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", var_name):
+        typer.echo(f"Invalid variable name: {var_name}", err=True)
+        return
+
     home = Path.home()
     shell = os.environ.get("SHELL", "")
 
