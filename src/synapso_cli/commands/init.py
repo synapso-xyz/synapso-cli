@@ -45,7 +45,7 @@ def set_environment_variable_system_wide(var_name: str, var_value: str):
     )
 
 
-def init_synapso():
+def init_synapso(force: bool = False):
     """
     Initialize a new Synapso project.
 
@@ -60,7 +60,6 @@ def init_synapso():
     SYNAPSO_HOME_STR = os.getenv("SYNAPSO_HOME")
     if not SYNAPSO_HOME_STR:
         SYNAPSO_HOME = Path.home() / ".synapso"
-        SYNAPSO_HOME.mkdir(parents=True, exist_ok=True)
         SYNAPSO_HOME_STR = str(SYNAPSO_HOME.expanduser().resolve())
 
         # Set the environment variable system-wide
@@ -71,6 +70,9 @@ def init_synapso():
         typer.echo(f"SYNAPSO_HOME not set, using default: {SYNAPSO_HOME_STR}")
     else:
         typer.echo(f"SYNAPSO_HOME set to: {SYNAPSO_HOME_STR}")
+        SYNAPSO_HOME = Path(SYNAPSO_HOME_STR)
+
+    SYNAPSO_HOME.mkdir(parents=True, exist_ok=True)
 
     config_path = Path(SYNAPSO_HOME_STR) / "config.yaml"
     if config_path.exists():
@@ -108,6 +110,7 @@ def _initialize_sqlite_db(location: str) -> None:
     Initialize the SQLite database.
     """
     db_path = Path(location).expanduser().resolve()
+    print("db_path after resolution:", db_path)
     if db_path.exists():
         typer.echo(f"SQLite database already exists at {db_path}")
         return
@@ -127,6 +130,7 @@ def _initialize_meta_store(config_file: str):
     try:
         config: GlobalConfig = get_config(config_file)
         meta_store_path = config.meta_store.meta_db_path
+        typer.echo(f"Initializing meta store at {meta_store_path}")
         _initialize_sqlite_db(meta_store_path)
     except Exception as e:
         typer.echo(f"Error initializing meta store: {e}", err=True)
@@ -137,6 +141,7 @@ def _initialize_vector_store(config_file: str):
     try:
         config: GlobalConfig = get_config(config_file)
         vector_store_path = config.vector_store.vector_db_path
+        typer.echo(f"Initializing vector store at {vector_store_path}")
         _initialize_sqlite_db(vector_store_path)
     except Exception as e:
         typer.echo(f"Error initializing vector store: {e}", err=True)
@@ -147,6 +152,7 @@ def _initialize_chunk_store(config_file: str):
     try:
         config: GlobalConfig = get_config(config_file)
         private_store_path = config.private_store.private_db_path
+        typer.echo(f"Initializing private store at {private_store_path}")
         _initialize_sqlite_db(private_store_path)
     except Exception as e:
         typer.echo(f"Error initializing private store: {e}", err=True)
