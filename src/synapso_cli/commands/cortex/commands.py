@@ -57,16 +57,15 @@ def cmd_create_cortex(folder_location: str, cortex_name: str):
 
 
 def cmd_index_cortex(cortex_id: str, cortex_name: str):
-    if not cortex_id and not cortex_name:
-        raise typer.BadParameter("Either cortex ID or cortex name is required")
-    cortex_id = cortex_id.strip().lower()
+    # Process cortex_id only if provided
+    if cortex_id:
+        cortex_id = cortex_id.strip().lower()
     try:
         cortex_manager = CortexManager()
         cortex_manager.index_cortex(cortex_id, cortex_name)
     except Exception as e:
         typer.echo(f"Error indexing cortex: {e}", err=True)
         raise typer.Exit(1) from e
-
 
 def _format_cortex_list(cortex_list: List[DBCortex]):
     msg = "Cortex ID\tCortex Name\tCortex Path\n"
