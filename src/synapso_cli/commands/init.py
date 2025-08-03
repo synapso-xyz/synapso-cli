@@ -6,6 +6,7 @@ from typing import Any, Dict
 import typer
 import yaml
 from synapso_core.config_manager import GlobalConfig, get_config
+from synapso_core.data_store import DataStoreFactory
 
 
 def set_environment_variable_system_wide(var_name: str, var_value: str):
@@ -136,8 +137,12 @@ def _initialize_meta_store(config_file: str):
     try:
         config: GlobalConfig = get_config(config_file)
         meta_store_path = config.meta_store.meta_db_path
+        meta_store_type = config.meta_store.meta_db_type
         typer.echo(f"Initializing meta store at {meta_store_path}")
         _initialize_sqlite_db(meta_store_path)
+        meta_store = DataStoreFactory.get_meta_store(meta_store_type)
+        meta_store.setup()
+
     except Exception as e:
         typer.echo(f"Error initializing meta store: {e}", err=True)
         raise typer.Exit(1) from e
@@ -147,8 +152,11 @@ def _initialize_vector_store(config_file: str):
     try:
         config: GlobalConfig = get_config(config_file)
         vector_store_path = config.vector_store.vector_db_path
+        vector_store_type = config.vector_store.vector_db_type
         typer.echo(f"Initializing vector store at {vector_store_path}")
         _initialize_sqlite_db(vector_store_path)
+        vector_store = DataStoreFactory.get_vector_store(vector_store_type)
+        vector_store.setup()
     except Exception as e:
         typer.echo(f"Error initializing vector store: {e}", err=True)
         raise typer.Exit(1) from e
@@ -158,8 +166,11 @@ def _initialize_chunk_store(config_file: str):
     try:
         config: GlobalConfig = get_config(config_file)
         private_store_path = config.private_store.private_db_path
+        private_store_type = config.private_store.private_db_type
         typer.echo(f"Initializing private store at {private_store_path}")
         _initialize_sqlite_db(private_store_path)
+        private_store = DataStoreFactory.get_private_store(private_store_type)
+        private_store.setup()
     except Exception as e:
         typer.echo(f"Error initializing private store: {e}", err=True)
         raise typer.Exit(1) from e
