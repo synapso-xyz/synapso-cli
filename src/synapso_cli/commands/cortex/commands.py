@@ -1,5 +1,8 @@
+from typing import List
+
 import typer
 from synapso_core.cortex_manager import CortexManager
+from synapso_core.data_store.data_models import DBCortex
 
 cortex_app = typer.Typer()
 
@@ -24,11 +27,28 @@ def create(
 @cortex_app.command(name="index")
 def index(
     cortex_id: str = typer.Option(
-        ..., help="The ID of the cortex to index", metavar="CORTEX_ID"
+        None,
+        help="The ID of the cortex to index",
+        metavar="CORTEX_ID",
+    ),
+    cortex_name: str = typer.Option(
+        None,
+        help="The name of the cortex to index",
+        metavar="CORTEX_NAME",
     ),
 ):
-    cmd_index_cortex(cortex_id)
+    if not cortex_id and not cortex_name:
+        raise typer.BadParameter("Either cortex ID or cortex name is required")
+    cmd_index_cortex(cortex_id, cortex_name)
     typer.echo(f"Cortex {cortex_id} indexed successfully")
+
+
+@cortex_app.command(name="list")
+def cmd_cortex_list():
+    cortex_manager = CortexManager()
+    result = cortex_manager.list_cortices()
+    result_str = _format_cortex_list(result)
+    typer.echo(result_str)
 
 
 def cmd_create_cortex(folder_location: str, cortex_name: str):
@@ -36,18 +56,20 @@ def cmd_create_cortex(folder_location: str, cortex_name: str):
     return cortex_manager.create_cortex(cortex_name, folder_location)
 
 
-def cmd_initialize_cortex(cortex_id: str, index_now: bool = False):
-    cortex_manager = CortexManager()
-    return cortex_manager.initialize_cortex(cortex_id, index_now)
-
-
-def cmd_index_cortex(cortex_id: str):
+def cmd_index_cortex(cortex_id: str, cortex_name: str):
+    if not cortex_id and not cortex_name:
+        raise typer.BadParameter("Either cortex ID or cortex name is required")
     cortex_id = cortex_id.strip().lower()
-    if not cortex_id:
-        raise typer.BadParameter("Cortex ID is required")
     try:
         cortex_manager = CortexManager()
-        return cortex_manager.index_cortex(cortex_id)
+        cortex_manager.index_cortex(cortex_id, cortex_name)
     except Exception as e:
         typer.echo(f"Error indexing cortex: {e}", err=True)
         raise typer.Exit(1) from e
+
+
+def _format_cortex_list(cortex_list: List[DBCortex]):
+    msg = "Cortex ID\tCortex Name\tCortex Path\n"
+    for cortex in cortex_list:
+        msg += f"{cortex.cortex_id}\t{cortex.cortex_name}\t{cortex.path}\n"
+    return msg
