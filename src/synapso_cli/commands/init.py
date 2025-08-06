@@ -5,8 +5,11 @@ from typing import Any, Dict
 
 import typer
 import yaml
-from synapso_core.config_manager import GlobalConfig, get_config
-from synapso_core.data_store import DataStoreFactory
+
+from ..config import GlobalConfig, get_config
+from ..rest_client import SynapsoRestClientError
+from .server import ensure_server, get_rest_client, is_server_running
+from .server import restart as restart_server
 
 
 def set_environment_variable_system_wide(var_name: str, var_value: str):
@@ -52,7 +55,7 @@ def set_environment_variable_system_wide(var_name: str, var_value: str):
     )
 
 
-def init_synapso(force: bool = False):
+def init_synapso(force_db_reset: bool = False):
     """
     Initialize a new Synapso project.
 
@@ -91,7 +94,52 @@ def init_synapso(force: bool = False):
             yaml.dump(default_config, f, default_flow_style=False)
         typer.echo(f"Config file created at {config_path}")
 
-    _initialize(str(config_path))
+    if force_db_reset:
+        # Remove db files
+        _remove_db_files(config_path)
+        if is_server_running():
+            restart_server()
+
+    # Start the server
+    typer.echo("Starting server...")
+    ensure_server()
+    typer.echo("Server started.")
+
+    _initialize()
+
+
+def _remove_db_files(config_path: Path):
+    config: GlobalConfig = get_config(str(config_path))
+
+    # Validate that paths are within the SYNAPSO_HOME
+    synapso_home = (
+        Path(os.getenv("SYNAPSO_HOME", Path.home() / ".synapso")).expanduser().resolve()
+    )
+
+    meta_store_path = Path(config.meta_store.meta_db_path).expanduser().resolve()
+    vector_store_path = Path(config.vector_store.vector_db_path).expanduser().resolve()
+    private_store_path = (
+        Path(config.private_store.private_db_path).expanduser().resolve()
+    )
+
+    for path in [meta_store_path, vector_store_path, private_store_path]:
+        if not str(path).startswith(str(synapso_home)):
+            typer.echo(
+                f"Path {path} is not within SYNAPSO_HOME {synapso_home}", err=True
+            )
+            raise typer.Exit(1)
+
+    if meta_store_path.exists():
+        typer.echo(f"Removing meta store at {meta_store_path}")
+        meta_store_path.unlink()
+
+    if vector_store_path.exists():
+        typer.echo(f"Removing vector store at {vector_store_path}")
+        vector_store_path.unlink()
+
+    if private_store_path.exists():
+        typer.echo(f"Removing private store at {private_store_path}")
+        private_store_path.unlink()
 
 
 def _get_default_config() -> Dict[str, Any]:
@@ -112,65 +160,28 @@ def _get_default_config() -> Dict[str, Any]:
     return default_config
 
 
-def _initialize_sqlite_db(location: str) -> None:
-    """
-    Initialize the SQLite database.
-    """
-    db_path = Path(location).expanduser().resolve()
-    print("db_path after resolution:", db_path)
-    if db_path.exists():
-        typer.echo(f"SQLite database already exists at {db_path}")
-        return
-
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    db_path.touch()
-    typer.echo(f"SQLite database created at {db_path}")
-
-
-def _initialize(config_file: str):
-    _initialize_meta_store(config_file)
-    _initialize_vector_store(config_file)
-    _initialize_chunk_store(config_file)
-
-
-def _initialize_meta_store(config_file: str):
+def _initialize():
+    rest_client = get_rest_client()
     try:
-        config: GlobalConfig = get_config(config_file)
-        meta_store_path = config.meta_store.meta_db_path
-        meta_store_type = config.meta_store.meta_db_type
-        typer.echo(f"Initializing meta store at {meta_store_path}")
-        _initialize_sqlite_db(meta_store_path)
-        meta_store = DataStoreFactory.get_meta_store(meta_store_type)
-        meta_store.setup()
-
-    except Exception as e:
-        typer.echo(f"Error initializing meta store: {e}", err=True)
+        response = rest_client.system_init()
+    except SynapsoRestClientError as e:
+        typer.echo(f"Synapso REST client error: {e}", err=True)
         raise typer.Exit(1) from e
-
-
-def _initialize_vector_store(config_file: str):
-    try:
-        config: GlobalConfig = get_config(config_file)
-        vector_store_path = config.vector_store.vector_db_path
-        vector_store_type = config.vector_store.vector_db_type
-        typer.echo(f"Initializing vector store at {vector_store_path}")
-        _initialize_sqlite_db(vector_store_path)
-        vector_store = DataStoreFactory.get_vector_store(vector_store_type)
-        vector_store.setup()
     except Exception as e:
-        typer.echo(f"Error initializing vector store: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1) from e
+    meta_store_status = response["meta_store_initialized"]
+    vector_store_status = response["vector_store_initialized"]
+    private_store_status = response["private_store_initialized"]
 
+    if not meta_store_status:
+        typer.echo("Meta store not initialized", err=True)
+        raise typer.Exit(1)
+    if not vector_store_status:
+        typer.echo("Vector store not initialized", err=True)
+        raise typer.Exit(1)
+    if not private_store_status:
+        typer.echo("Private store not initialized", err=True)
+        raise typer.Exit(1)
 
-def _initialize_chunk_store(config_file: str):
-    try:
-        config: GlobalConfig = get_config(config_file)
-        private_store_path = config.private_store.private_db_path
-        private_store_type = config.private_store.private_db_type
-        typer.echo(f"Initializing private store at {private_store_path}")
-        _initialize_sqlite_db(private_store_path)
-        private_store = DataStoreFactory.get_private_store(private_store_type)
-        private_store.setup()
-    except Exception as e:
-        typer.echo(f"Error initializing private store: {e}", err=True)
-        raise typer.Exit(1) from e
+    typer.echo("System initialized successfully")

@@ -4,11 +4,11 @@ version = "0.3.0"
 description = "Internal"
 authors = [{ name = "Ganesh Palanikumar" }]
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = ["typer==0.16.0", "synapso-core>=0.2.0", "pyyaml==6.0.2"]
+requires-python = ">=3.11"
+dependencies = ["typer==0.16.0", "pyyaml==6.0.2", "requests>=2.31.0"]
 
 [project.scripts]
-synapso = "synapso_cli.main:app"
+synapso = "synapso_cli.main:synapso_cli"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
