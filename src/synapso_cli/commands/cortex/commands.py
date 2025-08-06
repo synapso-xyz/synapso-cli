@@ -24,10 +24,10 @@ def create(
         response = rest_client.create_cortex(folder_location, cortex_name)
     except SynapsoRestClientError as e:
         typer.echo(f"Synapso REST client error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     typer.echo(response)
     cortex_id = response["cortex"]["id"]
     typer.echo(
@@ -55,10 +55,10 @@ def index(
         response = rest_client.index_cortex(cortex_id, cortex_name)
     except SynapsoRestClientError as e:
         typer.echo(f"Synapso REST client error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     typer.echo(response)
     identifier = cortex_id or cortex_name
     typer.echo(f"Cortex {identifier} indexed successfully")
@@ -71,10 +71,10 @@ def cmd_cortex_list():
         response = rest_client.get_cortex_list()
     except SynapsoRestClientError as e:
         typer.echo(f"Synapso REST client error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     typer.echo(_format_cortex_list(response))
 
 

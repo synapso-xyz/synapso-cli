@@ -38,6 +38,8 @@ def launch_server(preferred_port=50000, timeout=300):
     port = get_available_port(preferred_port)
     SERVER_LOG_PATH = Path.home() / ".synapso" / "server.log"
     SERVER_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    log_file = SERVER_LOG_PATH.open("w")
     try:
         process = subprocess.Popen(
             [
@@ -48,15 +50,16 @@ def launch_server(preferred_port=50000, timeout=300):
                 "--port",
                 str(port),
             ],
-            stdout=SERVER_LOG_PATH.open("w"),
-            stderr=SERVER_LOG_PATH.open("w"),
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
         )
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        log_file.close()
         raise RuntimeError(
             "uvicorn is not installed. Please install it with 'pip install uvicorn'"
-        )
+        ) from e
     except Exception as e:
-        raise RuntimeError(f"Failed to launch server: {e}")
+        raise RuntimeError(f"Failed to launch server: {e}") from e
 
     # Wait for healthcheck
     url = f"http://127.0.0.1:{port}/"
@@ -78,7 +81,7 @@ def launch_server(preferred_port=50000, timeout=300):
 
     # Timed out — kill process
     process.kill()
-    raise RuntimeError(f"Server failed to start within {timeout} seconds.")
+    raise RuntimeError(f"Server failed to start within {timeout} seconds.") from None
 
 
 def is_server_running():

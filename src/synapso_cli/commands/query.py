@@ -12,7 +12,7 @@ def cmd_query(query: str):
         typer.echo(response)
     except SynapsoRestClientError as e:
         typer.echo(f"Synapso REST client error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e

@@ -166,10 +166,10 @@ def _initialize():
         response = rest_client.system_init()
     except SynapsoRestClientError as e:
         typer.echo(f"Synapso REST client error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     meta_store_status = response["meta_store_initialized"]
     vector_store_status = response["vector_store_initialized"]
     private_store_status = response["private_store_initialized"]
