@@ -1,15 +1,18 @@
 import typer
 
-from ..rest_client import SynapsoRestClient
-from .server import ensure_server, get_server_config
+from ..rest_client import SynapsoRestClientError
+from .server import get_rest_client
 
 
 def cmd_query(query: str):
     """Execute a query against a cortex."""
-    ensure_server()
-    server_config = get_server_config()
-    if not server_config:
-        raise typer.BadParameter("Server is not running")
-    rest_client = SynapsoRestClient(f"http://127.0.0.1:{server_config['port']}")
-    response = rest_client.query(query)
-    typer.echo(response)
+    rest_client = get_rest_client()
+    try:
+        response = rest_client.query(query)
+        typer.echo(response)
+    except SynapsoRestClientError as e:
+        typer.echo(f"Synapso REST client error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)

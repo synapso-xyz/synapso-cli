@@ -8,10 +8,20 @@ import psutil
 import requests
 import typer
 
+from ..rest_client import SynapsoRestClient
+
 server_app = typer.Typer()
 
 CONFIG_PATH = Path.home() / ".synapso" / "api.conf"
 CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+def get_rest_client():
+    ensure_server()
+    server_config = get_server_config()
+    if not server_config:
+        raise typer.BadParameter("Server is not running")
+    return SynapsoRestClient(f"http://127.0.0.1:{server_config['port']}")
 
 
 def get_available_port(preferred_port=50000):
@@ -24,17 +34,29 @@ def get_available_port(preferred_port=50000):
             return s.getsockname()[1]
 
 
-def launch_server(port, timeout=300):
-    process = subprocess.Popen(
-        [
-            "uvicorn",
-            "synapso_api.main:synapso_api",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ]
-    )
+def launch_server(preferred_port=50000, timeout=300):
+    port = get_available_port(preferred_port)
+    SERVER_LOG_PATH = Path.home() / ".synapso" / "server.log"
+    SERVER_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        process = subprocess.Popen(
+            [
+                "uvicorn",
+                "synapso_api.main:synapso_api",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+            ],
+            stdout=SERVER_LOG_PATH.open("w"),
+            stderr=SERVER_LOG_PATH.open("w"),
+        )
+    except FileNotFoundError:
+        raise RuntimeError(
+            "uvicorn is not installed. Please install it with 'pip install uvicorn'"
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to launch server: {e}")
 
     # Wait for healthcheck
     url = f"http://127.0.0.1:{port}/"
@@ -86,12 +108,11 @@ def is_server_running():
 
 def ensure_server():
     if is_server_running():
-        print("Server already running.")
+        typer.echo("Server already running.")
         return
 
-    port = get_available_port()
-    config = launch_server(port)
-    print(f"Server started on port {config['port']} (pid {config['pid']})")
+    config = launch_server()
+    typer.echo(f"Server started on port {config['port']} (pid {config['pid']})")
 
 
 def get_server_config():
@@ -110,7 +131,7 @@ def start():
 @server_app.command()
 def stop():
     if not CONFIG_PATH.exists():
-        print("Server not running.")
+        typer.echo("Server not running.")
         return
 
     try:
@@ -118,15 +139,24 @@ def stop():
             config = json.load(f)
         pid = config.get("pid")
         if not pid:
-            print("Server not running.")
+            typer.echo("Server not running.")
             return
 
         p = psutil.Process(pid)
         p.terminate()
+        try:
+            p.wait(timeout=10)
+        except psutil.TimeoutExpired:
+            p.kill()
+            p.wait()
         CONFIG_PATH.unlink()
-        print("Server stopped.")
-    except Exception:
-        print("Server not running.")
+        typer.echo("Server stopped.")
+    except psutil.NoSuchProcess:
+        CONFIG_PATH.unlink()
+        typer.echo("Server not running (stale config cleaned up)")
+    except Exception as e:
+        typer.echo(f"Error stopping server: {e}", err=True)
+        raise typer.Exit(1)
 
 
 @server_app.command()
@@ -134,13 +164,13 @@ def status():
     if is_server_running():
         server_config = get_server_config()
         if not server_config:
-            print("Server is running but config is not found.")
+            typer.echo("Server is running but config is not found.")
         else:
-            print(
+            typer.echo(
                 f"Server is running on port {server_config['port']} (pid {server_config['pid']})"
             )
     else:
-        print("Server is not running.")
+        typer.echo("Server is not running.")
 
 
 @server_app.command()

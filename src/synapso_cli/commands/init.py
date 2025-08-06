@@ -7,8 +7,9 @@ import typer
 import yaml
 
 from ..config import GlobalConfig, get_config
-from ..rest_client import SynapsoRestClient
-from .server import ensure_server, get_server_config, is_server_running, restart
+from ..rest_client import SynapsoRestClientError
+from .server import ensure_server, get_rest_client, is_server_running
+from .server import restart as restart_server
 
 
 def set_environment_variable_system_wide(var_name: str, var_value: str):
@@ -97,7 +98,7 @@ def init_synapso(force_db_reset: bool = False):
         # Remove db files
         _remove_db_files(config_path)
         if is_server_running():
-            restart()
+            restart_server()
 
     # Start the server
     typer.echo("Starting server...")
@@ -109,11 +110,24 @@ def init_synapso(force_db_reset: bool = False):
 
 def _remove_db_files(config_path: Path):
     config: GlobalConfig = get_config(str(config_path))
+
+    # Validate that paths are within the SYNAPSO_HOME
+    synapso_home = (
+        Path(os.getenv("SYNAPSO_HOME", Path.home() / ".synapso")).expanduser().resolve()
+    )
+
     meta_store_path = Path(config.meta_store.meta_db_path).expanduser().resolve()
     vector_store_path = Path(config.vector_store.vector_db_path).expanduser().resolve()
     private_store_path = (
         Path(config.private_store.private_db_path).expanduser().resolve()
     )
+
+    for path in [meta_store_path, vector_store_path, private_store_path]:
+        if not str(path).startswith(str(synapso_home)):
+            typer.echo(
+                f"Path {path} is not within SYNAPSO_HOME {synapso_home}", err=True
+            )
+            raise typer.Exit(1)
 
     if meta_store_path.exists():
         typer.echo(f"Removing meta store at {meta_store_path}")
@@ -147,10 +161,27 @@ def _get_default_config() -> Dict[str, Any]:
 
 
 def _initialize():
-    ensure_server()
-    server_config = get_server_config()
-    if not server_config:
-        raise typer.BadParameter("Server is not running")
-    rest_client = SynapsoRestClient(f"http://127.0.0.1:{server_config['port']}")
-    response = rest_client.system_init()
-    typer.echo(response)
+    rest_client = get_rest_client()
+    try:
+        response = rest_client.system_init()
+    except SynapsoRestClientError as e:
+        typer.echo(f"Synapso REST client error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    meta_store_status = response["meta_store_initialized"]
+    vector_store_status = response["vector_store_initialized"]
+    private_store_status = response["private_store_initialized"]
+
+    if not meta_store_status:
+        typer.echo("Meta store not initialized", err=True)
+        raise typer.Exit(1)
+    if not vector_store_status:
+        typer.echo("Vector store not initialized", err=True)
+        raise typer.Exit(1)
+    if not private_store_status:
+        typer.echo("Private store not initialized", err=True)
+        raise typer.Exit(1)
+
+    typer.echo("System initialized successfully")
