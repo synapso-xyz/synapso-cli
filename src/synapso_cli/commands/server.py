@@ -4,27 +4,32 @@ import subprocess
 import time
 from pathlib import Path
 
+import cyclopts
 import psutil
 import requests
-import typer
 
 from ..rest_client import SynapsoRestClient
 
-server_app = typer.Typer()
+server_app = cyclopts.App()
 
 CONFIG_PATH = Path.home() / ".synapso" / "api.conf"
 CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+SERVER_LOG_PATH = Path.home() / ".synapso" / "server.log"
+SERVER_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
 
 def get_rest_client():
+    """Get a rest client for the server."""
     ensure_server()
     server_config = get_server_config()
     if not server_config:
-        raise typer.BadParameter("Server is not running")
+        raise cyclopts.CycloptsError("Server is not running")
     return SynapsoRestClient(f"http://127.0.0.1:{server_config['port']}")
 
 
 def get_available_port(preferred_port=50000):
+    """Get an available port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.bind(("localhost", preferred_port))
@@ -35,9 +40,8 @@ def get_available_port(preferred_port=50000):
 
 
 def launch_server(preferred_port=50000, timeout=300):
+    """Launch the server."""
     port = get_available_port(preferred_port)
-    SERVER_LOG_PATH = Path.home() / ".synapso" / "server.log"
-    SERVER_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     log_file = SERVER_LOG_PATH.open("w")
     try:
@@ -85,6 +89,7 @@ def launch_server(preferred_port=50000, timeout=300):
 
 
 def is_server_running():
+    """Check if the server is running."""
     if not CONFIG_PATH.exists():
         return False
 
@@ -110,15 +115,17 @@ def is_server_running():
 
 
 def ensure_server():
+    """Ensure the server is running."""
     if is_server_running():
-        typer.echo("Server already running.")
+        print("Server already running.")
         return
 
     config = launch_server()
-    typer.echo(f"Server started on port {config['port']} (pid {config['pid']})")
+    print(f"Server started on port {config['port']} (pid {config['pid']})")
 
 
 def get_server_config():
+    """Get the server config."""
     if not CONFIG_PATH.exists():
         return None
 
@@ -128,13 +135,15 @@ def get_server_config():
 
 @server_app.command()
 def start():
+    """Start the server."""
     ensure_server()
 
 
 @server_app.command()
 def stop():
+    """Stop the server."""
     if not CONFIG_PATH.exists():
-        typer.echo("Server not running.")
+        print("Server not running.")
         return
 
     try:
@@ -142,7 +151,7 @@ def stop():
             config = json.load(f)
         pid = config.get("pid")
         if not pid:
-            typer.echo("Server not running.")
+            print("Server not running.")
             return
 
         p = psutil.Process(pid)
@@ -153,13 +162,13 @@ def stop():
             p.kill()
             p.wait()
         CONFIG_PATH.unlink()
-        typer.echo("Server stopped.")
+        print("Server stopped.")
     except psutil.NoSuchProcess:
         CONFIG_PATH.unlink()
-        typer.echo("Server not running (stale config cleaned up)")
+        print("Server not running (stale config cleaned up)")
     except Exception as e:
-        typer.echo(f"Error stopping server: {e}", err=True)
-        raise typer.Exit(1)
+        print(f"Error stopping server: {e}")
+        raise cyclopts.CycloptsError(f"Error stopping server: {e}")
 
 
 @server_app.command()
@@ -167,13 +176,13 @@ def status():
     if is_server_running():
         server_config = get_server_config()
         if not server_config:
-            typer.echo("Server is running but config is not found.")
+            print("Server is running but config is not found.")
         else:
-            typer.echo(
+            print(
                 f"Server is running on port {server_config['port']} (pid {server_config['pid']})"
             )
     else:
-        typer.echo("Server is not running.")
+        print("Server is not running.")
 
 
 @server_app.command()

@@ -68,3 +68,21 @@ class SynapsoRestClient:
         url = f"{self.base_url}/system/init"
         response = requests.post(url, timeout=300)
         return _handle_response(response)
+
+    def query_stream(self, query: str):
+        url = f"{self.base_url}/query/query_stream"
+        data = {
+            "query": query,
+        }
+        with requests.post(url, json=data, timeout=300, stream=True) as response:
+            # Check if the request was successful
+            response.raise_for_status()
+
+            print("Server Response (Streaming):")
+            # iter_content lets us process the response chunk-by-chunk
+            # decode_unicode=True converts the raw bytes to text for us
+            for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+                if chunk:
+                    # Print each piece of text as it arrives
+                    # print(chunk, end="", flush=True)
+                    yield chunk

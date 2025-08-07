@@ -8,7 +8,7 @@ import yaml
 
 from ..config import GlobalConfig, get_config
 from ..rest_client import SynapsoRestClientError
-from .server import ensure_server, get_rest_client, is_server_running
+from .server import get_rest_client, is_server_running
 from .server import restart as restart_server
 
 
@@ -102,7 +102,7 @@ def init_synapso(force_db_reset: bool = False):
 
     # Start the server
     typer.echo("Starting server...")
-    ensure_server()
+    restart_server()
     typer.echo("Server started.")
 
     _initialize()
@@ -172,7 +172,7 @@ def _initialize():
         raise typer.Exit(1) from e
     meta_store_status = response["meta_store_initialized"]
     vector_store_status = response["vector_store_initialized"]
-    private_store_status = response["private_store_initialized"]
+    chunk_store_status = response["chunk_store_initialized"]
 
     if not meta_store_status:
         typer.echo("Meta store not initialized", err=True)
@@ -180,8 +180,8 @@ def _initialize():
     if not vector_store_status:
         typer.echo("Vector store not initialized", err=True)
         raise typer.Exit(1)
-    if not private_store_status:
-        typer.echo("Private store not initialized", err=True)
+    if not chunk_store_status:
+        typer.echo("Chunk store not initialized", err=True)
         raise typer.Exit(1)
 
     typer.echo("System initialized successfully")

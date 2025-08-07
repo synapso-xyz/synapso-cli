@@ -1,54 +1,51 @@
 import warnings
+from typing import Annotated
 
-import typer
+import cyclopts
 
 from .commands.cortex import cortex_app
 from .commands.init import init_synapso
-from .commands.query import cmd_query
+from .commands.query import cmd_query, cmd_query_stream
 from .commands.server import server_app
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-synapso_cli = typer.Typer()
-synapso_cli.add_typer(cortex_app, name="cortex")
-synapso_cli.add_typer(server_app, name="server")
+synapso_cli = cyclopts.App(
+    name="synapso",
+)
+
+synapso_cli.command(cortex_app, name="cortex")
+synapso_cli.command(server_app, name="server")
 
 
-@synapso_cli.callback()
-def main(
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Enable verbose output including debug logs"
-    ),
-):
-    """Synapso CLI - Local-first AI knowledge management."""
-    if verbose:
-        set_verbose_logging()
-
-
-@synapso_cli.command()
+@synapso_cli.command
 def init(
-    force_db_reset: bool = typer.Option(
-        False, "--force-db-reset", "-f", help="Force reset the database"
-    ),
+    force_db_reset: Annotated[
+        bool, cyclopts.Parameter(name=["--force-db-reset", "-f"])
+    ] = False,
 ):
     init_synapso(force_db_reset)
 
 
-@synapso_cli.command()
 def query(
-    query_text: str = typer.Option(..., help="The query to execute", metavar="QUERY"),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Enable verbose output including debug logs"
-    ),
+    query_text: Annotated[str, cyclopts.Parameter(name=["--query", "-q"])],
+    cortex_id: Annotated[
+        str | None, cyclopts.Parameter(name=["--cortex-id", "-c"])
+    ] = None,  # noqa
 ):
     """Query a cortex with a natural language query."""
-    if verbose:
-        set_verbose_logging()
-
     cmd_query(query_text)
 
 
-def set_verbose_logging(): ...
+@synapso_cli.command(name="ask")
+def query_stream(
+    query_text: Annotated[str, cyclopts.Parameter(name=["--query", "-q"])],
+    cortex_id: Annotated[
+        str | None, cyclopts.Parameter(name=["--cortex-id", "-c"])
+    ] = None,  # noqa
+):
+    """Query a cortex with a natural language query and stream the results."""
+    cmd_query_stream(query_text)
 
 
 if __name__ == "__main__":
