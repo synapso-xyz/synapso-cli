@@ -86,3 +86,13 @@ class SynapsoRestClient:
                     # Print each piece of text as it arrives
                     # print(chunk, end="", flush=True)
                     yield chunk
+
+    def get_job_list(self):
+        url = f"{self.base_url}/job/list_jobs"
+        response = requests.get(url, timeout=300)
+        return _handle_response(response)
+
+    def get_job(self, job_id: str):
+        url = f"{self.base_url}/job/get_job"
+        response = requests.get(url, params={"job_id": job_id}, timeout=300)
+        return _handle_response(response)

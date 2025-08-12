@@ -56,7 +56,7 @@ def index(
     print(f"Cortex {identifier} indexed successfully")
 
 
-@cortex_app.command
+@cortex_app.command(name="list")
 def cmd_cortex_list():
     rest_client = get_rest_client()
     try:

@@ -5,6 +5,7 @@ import cyclopts
 
 from .commands.cortex import cortex_app
 from .commands.init import init_synapso
+from .commands.job import job_app
 from .commands.query import cmd_query, cmd_query_stream
 from .commands.server import server_app
 
@@ -16,6 +17,7 @@ synapso_cli = cyclopts.App(
 
 synapso_cli.command(cortex_app, name="cortex")
 synapso_cli.command(server_app, name="server")
+synapso_cli.command(job_app, name="job")
 
 
 @synapso_cli.command
