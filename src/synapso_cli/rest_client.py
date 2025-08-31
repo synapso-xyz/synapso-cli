@@ -53,7 +53,7 @@ class SynapsoRestClient:
             params["cortex_id"] = cortex_id
         if cortex_name:
             params["cortex_name"] = cortex_name
-        response = requests.post(url, params=params, timeout=300)
+        response = requests.post(url, json=params, timeout=300)
         return _handle_response(response)
 
     def query(self, query: str):

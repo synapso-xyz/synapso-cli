@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict
 
-import typer
+import cyclopts
 import yaml
 
 from ..config import GlobalConfig, get_config
@@ -16,7 +16,7 @@ def set_environment_variable_system_wide(var_name: str, var_value: str):
     """Set an environment variable system-wide by modifying shell configuration files."""
     # Validate
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", var_name):
-        typer.echo(f"Invalid variable name: {var_name}", err=True)
+        print(f"Invalid variable name: {var_name}")
         return
 
     home = Path.home()
@@ -35,10 +35,10 @@ def set_environment_variable_system_wide(var_name: str, var_value: str):
 
     # Check if the variable is already set
     if config_file.exists():
-        with open(config_file, "r") as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             content = f.read()
             if f"export {var_name}=" in content:
-                typer.echo(
+                print(
                     f"Environment variable {var_name} is already set in {config_file}"
                 )
                 return
@@ -46,11 +46,11 @@ def set_environment_variable_system_wide(var_name: str, var_value: str):
     # Add the export statement to the configuration file
     export_line = f'\nexport {var_name}="{var_value}"\n'
 
-    with open(config_file, "a") as f:
+    with open(config_file, "a", encoding="utf-8") as f:
         f.write(export_line)
 
-    typer.echo(f"Added {var_name}={var_value} to {config_file}")
-    typer.echo(
+    print(f"Added {var_name}={var_value} to {config_file}")
+    print(
         f"Please run 'source {config_file}' or restart your terminal to apply changes"
     )
 
@@ -66,7 +66,7 @@ def init_synapso(force_db_reset: bool = False):
     4. If they choose custom config, open the config file in the editor.
 
     """
-    typer.echo("Initializing Synapso project...")
+    print("Initializing Synapso project...")
     SYNAPSO_HOME_STR = os.getenv("SYNAPSO_HOME")
     if not SYNAPSO_HOME_STR:
         SYNAPSO_HOME = Path.home() / ".synapso"
@@ -77,22 +77,22 @@ def init_synapso(force_db_reset: bool = False):
 
         # Also set it for the current process
         os.environ["SYNAPSO_HOME"] = SYNAPSO_HOME_STR
-        typer.echo(f"SYNAPSO_HOME not set, using default: {SYNAPSO_HOME_STR}")
+        print(f"SYNAPSO_HOME not set, using default: {SYNAPSO_HOME_STR}")
     else:
-        typer.echo(f"SYNAPSO_HOME set to: {SYNAPSO_HOME_STR}")
+        print(f"SYNAPSO_HOME set to: {SYNAPSO_HOME_STR}")
         SYNAPSO_HOME = Path(SYNAPSO_HOME_STR)
 
     SYNAPSO_HOME.mkdir(parents=True, exist_ok=True)
 
     config_path = Path(SYNAPSO_HOME_STR) / "config.yaml"
     if config_path.exists():
-        typer.echo(f"Config file already exists at {config_path}")
+        print(f"Config file already exists at {config_path}")
     else:
-        typer.echo(f"Creating config file at {config_path}")
+        print(f"Creating config file at {config_path}")
         default_config = _get_default_config()
-        with open(config_path, "w") as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(default_config, f, default_flow_style=False)
-        typer.echo(f"Config file created at {config_path}")
+        print(f"Config file created at {config_path}")
 
     if force_db_reset:
         # Remove db files
@@ -101,9 +101,9 @@ def init_synapso(force_db_reset: bool = False):
             restart_server()
 
     # Start the server
-    typer.echo("Starting server...")
+    print("Starting server...")
     restart_server()
-    typer.echo("Server started.")
+    print("Server started.")
 
     _initialize()
 
@@ -124,21 +124,21 @@ def _remove_db_files(config_path: Path):
 
     for path in [meta_store_path, vector_store_path, private_store_path]:
         if not str(path).startswith(str(synapso_home)):
-            typer.echo(
-                f"Path {path} is not within SYNAPSO_HOME {synapso_home}", err=True
+            print(f"Path {path} is not within SYNAPSO_HOME {synapso_home}")
+            raise cyclopts.CycloptsError(
+                f"Path {path} is not within SYNAPSO_HOME {synapso_home}"
             )
-            raise typer.Exit(1)
 
     if meta_store_path.exists():
-        typer.echo(f"Removing meta store at {meta_store_path}")
+        print(f"Removing meta store at {meta_store_path}")
         meta_store_path.unlink()
 
     if vector_store_path.exists():
-        typer.echo(f"Removing vector store at {vector_store_path}")
+        print(f"Removing vector store at {vector_store_path}")
         vector_store_path.unlink()
 
     if private_store_path.exists():
-        typer.echo(f"Removing private store at {private_store_path}")
+        print(f"Removing private store at {private_store_path}")
         private_store_path.unlink()
 
 
@@ -150,12 +150,12 @@ def _get_default_config() -> Dict[str, Any]:
         Path(__file__).parent.parent.parent.parent / "resources" / "default_config.yaml"
     )
     if not default_config_path.exists():
-        typer.echo(
-            f"Error: Default config file not found at {default_config_path}", err=True
+        print(f"Error: Default config file not found at {default_config_path}")
+        raise cyclopts.CycloptsError(
+            f"Error: Default config file not found at {default_config_path}"
         )
-        raise typer.Exit(1)
 
-    with open(default_config_path, "r") as f:
+    with open(default_config_path, "r", encoding="utf-8") as f:
         default_config = yaml.safe_load(f)
     return default_config
 
@@ -165,23 +165,23 @@ def _initialize():
     try:
         response = rest_client.system_init()
     except SynapsoRestClientError as e:
-        typer.echo(f"Synapso REST client error: {e}", err=True)
-        raise typer.Exit(1) from e
+        print(f"Synapso REST client error: {e}")
+        raise cyclopts.CycloptsError(f"Synapso REST client error: {e}")
     except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
+        print(f"Error: {e}")
+        raise cyclopts.CycloptsError(f"Error: {e}")
     meta_store_status = response["meta_store_initialized"]
     vector_store_status = response["vector_store_initialized"]
     chunk_store_status = response["chunk_store_initialized"]
 
     if not meta_store_status:
-        typer.echo("Meta store not initialized", err=True)
-        raise typer.Exit(1)
+        print("Meta store not initialized")
+        raise cyclopts.CycloptsError("Meta store not initialized")
     if not vector_store_status:
-        typer.echo("Vector store not initialized", err=True)
-        raise typer.Exit(1)
+        print("Vector store not initialized")
+        raise cyclopts.CycloptsError("Vector store not initialized")
     if not chunk_store_status:
-        typer.echo("Chunk store not initialized", err=True)
-        raise typer.Exit(1)
+        print("Chunk store not initialized")
+        raise cyclopts.CycloptsError("Chunk store not initialized")
 
-    typer.echo("System initialized successfully")
+    print("System initialized successfully")
